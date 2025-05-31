@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 
 function App() {
@@ -7,25 +7,92 @@ function App() {
   const [chat, setChat] = useState([]);
   const [loading, setLoading] = useState(false);
   const [animatedText, setAnimatedText] = useState("");
+  const [imagePreview, setImagePreview] = useState(null);
+  const dropRef = useRef(null);
+
+  useEffect(() => {
+    if (!image) return;
+
+    const objectUrl = URL.createObjectURL(image);
+    setImagePreview(objectUrl);
+
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [image]);
+
+  // Drag and Drop Effects
+  useEffect(() => {
+    const dropArea = dropRef.current;
+    if (!dropArea) return;
+
+    const handleDragOver = (e) => {
+      e.preventDefault();
+      dropArea.classList.add("border-blue-500");
+    };
+
+    const handleDragLeave = () => {
+      dropArea.classList.remove("border-blue-500");
+    };
+
+    const handleDrop = (e) => {
+      e.preventDefault();
+      dropArea.classList.remove("border-blue-500");
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith("image/") && file.size <= 5 * 1024 * 1024) {
+        setImage(file);
+      } else {
+        alert("Only image files under 5MB are supported.");
+      }
+    };
+
+    dropArea.addEventListener("dragover", handleDragOver);
+    dropArea.addEventListener("dragleave", handleDragLeave);
+    dropArea.addEventListener("drop", handleDrop);
+
+    return () => {
+      dropArea.removeEventListener("dragover", handleDragOver);
+      dropArea.removeEventListener("dragleave", handleDragLeave);
+      dropArea.removeEventListener("drop", handleDrop);
+    };
+  }, []);
+
+  const speak = (text) => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "en-US";
+    window.speechSynthesis.speak(utterance);
+  };
 
   const handleImageChange = (e) => {
-    setImage(e.target.files[0]);
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("Please upload a valid image file.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image size must be under 5MB.");
+      return;
+    }
+
+    setImage(file);
   };
 
   const handleAsk = async () => {
-    if (!image || !question) return alert("Upload an image and enter a question.");
+    if (!image || !question) {
+      return alert("Upload an image and enter a question.");
+    }
 
     setLoading(true);
     setAnimatedText("");
     setChat((prev) => [...prev, { role: "user", content: question }]);
 
     try {
-      // Convert image file to base64
       const toBase64 = (file) =>
         new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.readAsDataURL(file);
-          reader.onload = () => resolve(reader.result.split(",")[1]); // remove base64 prefix
+          reader.onload = () => resolve(reader.result.split(",")[1]);
           reader.onerror = (error) => reject(error);
         });
 
@@ -34,7 +101,7 @@ function App() {
       const payload = {
         inputs: {
           image: base64Image,
-          text: question,  // Hugging Face expects 'text' key here for question
+          text: question,
         },
       };
 
@@ -43,7 +110,7 @@ function App() {
         payload,
         {
           headers: {
-            Authorization: `Bearer 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`, // Your HF token here
+            Authorization: `Bearer ${process.env.REACT_APP_HF_TOKEN}`,
             "Content-Type": "application/json",
           },
         }
@@ -52,10 +119,12 @@ function App() {
       const fullAnswer = res.data.answer || res.data.generated_text || JSON.stringify(res.data);
 
       typeText(fullAnswer);
+      speak(fullAnswer);
       setChat((prev) => [...prev, { role: "assistant", content: fullAnswer }]);
     } catch (err) {
-      alert("Error contacting Hugging Face API. Check console for details.");
-      console.error(err.response?.data || err.message || err);
+      const errorMsg = err.response?.data?.error || err.message || "Unknown error";
+      console.error("API Error:", errorMsg);
+      alert(`API Error: ${errorMsg}`);
     } finally {
       setLoading(false);
     }
@@ -79,19 +148,31 @@ function App() {
         <h1 className="text-3xl font-extrabold text-center text-white">🧠 Vision-QA Assistant</h1>
 
         <div className="flex flex-col gap-3">
+          <label htmlFor="imageUpload" className="text-white">Upload Image</label>
           <input
+            id="imageUpload"
             type="file"
             onChange={handleImageChange}
             accept="image/*"
             className="file-input file-input-bordered w-full bg-gray-700 text-white"
           />
+
+          <div
+            ref={dropRef}
+            className="border-2 border-dashed border-gray-500 rounded-xl p-4 text-center text-gray-400 hover:border-blue-500 cursor-pointer"
+          >
+            Drag and drop an image here
+          </div>
+
           <input
             type="text"
             placeholder="Ask a question about the image..."
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             className="input input-bordered w-full bg-gray-700 text-white placeholder-gray-400"
+            aria-label="Question"
           />
+
           <button
             onClick={handleAsk}
             className="bg-blue-500 text-white py-2 px-4 rounded-xl hover:bg-blue-600 transition"
@@ -101,11 +182,11 @@ function App() {
           </button>
         </div>
 
-        {image && (
+        {imagePreview && (
           <div>
             <p className="text-sm text-gray-300">Uploaded Image:</p>
             <img
-              src={URL.createObjectURL(image)}
+              src={imagePreview}
               alt="Uploaded preview"
               className="rounded-xl mt-2 max-h-64 w-full object-contain border border-gray-600"
             />
