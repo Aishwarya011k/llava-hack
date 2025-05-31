@@ -74,7 +74,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-gray-900 to-gray-700 p-4">
+    <div className="min-h-screen min-w-full bg-gradient-to-br from-gray-900 to-gray-700 p-4">
       <div className="max-w-3xl w-full mx-auto bg-gray-800 rounded-2xl shadow-2xl p-6 space-y-6">
         <h1 className="text-3xl font-extrabold text-center text-white">🧠 Vision-QA Assistant</h1>
 
