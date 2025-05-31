@@ -79,8 +79,8 @@ Make sure you have Node.js and npm installed.
 ## 📩 Contact
 
 For questions, please reach out to:
-- Abhishek - [email@example.com]
-- Aishwarya D - [email@example.com]
+- Abhishek - [abhishek346a@gmail.com]
+- Aishwarya D - [aishwaryadshetty019@gmail.com]
 
 
 ## Expanding the ESLint configuration
